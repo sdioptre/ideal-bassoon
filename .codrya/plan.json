@@ -1,0 +1,344 @@
+{
+  "tasks": [
+    {
+      "id": "1",
+      "title": "Initialize Prisma database schema and migrations",
+      "depends_on": [],
+      "ai_prompt_package": {
+        "non_goals": [
+          "User profile extensions",
+          "Social features",
+          "Public matchmaking"
+        ],
+        "objective": "Create Prisma schema file with models for Users, Rooms, Games, Passages, and GameSessions. Generate and run initial migrations to set up PostgreSQL tables with proper indexes on room_id, user_id, and game_id.",
+        "context_paths": [
+          "prisma/schema.prisma",
+          "prisma/migrations/"
+        ],
+        "acceptance_commands": [
+          "npx prisma generate",
+          "npx prisma migrate dev --name init",
+          "npx prisma db seed"
+        ]
+      }
+    },
+    {
+      "id": "2",
+      "title": "Setup Node.js backend server with Express and Socket.io",
+      "depends_on": [],
+      "ai_prompt_package": {
+        "non_goals": [
+          "Production deployment configs",
+          "Load balancer setup",
+          "Monitoring dashboards"
+        ],
+        "objective": "Create Express server entry point with Socket.io integration. Configure middleware for JWT authentication, CORS, and error handling. Set up Redis client connection for Pub/Sub and state storage.",
+        "context_paths": [
+          "src/server/index.ts",
+          "src/server/socket.ts",
+          "src/config/redis.ts"
+        ],
+        "acceptance_commands": [
+          "npm run build",
+          "npm run lint",
+          "node dist/server/index.js --test"
+        ]
+      }
+    },
+    {
+      "id": "3",
+      "title": "Setup React frontend with TypeScript and Canvas infrastructure",
+      "depends_on": [],
+      "ai_prompt_package": {
+        "non_goals": [
+          "Mobile responsiveness",
+          "Voice chat",
+          "Social sharing"
+        ],
+        "objective": "Initialize React 18 + TypeScript project with Vite. Set up HTML5 Canvas rendering infrastructure and Socket.io-client integration. Configure React Context for global game state management.",
+        "context_paths": [
+          "src/App.tsx",
+          "src/components/CanvasRaceTrack.tsx",
+          "src/context/GameContext.tsx"
+        ],
+        "acceptance_commands": [
+          "npm run build",
+          "npm run lint",
+          "npm test"
+        ]
+      }
+    },
+    {
+      "id": "4",
+      "title": "Implement authentication system with JWT and HTTP-only cookies",
+      "depends_on": [
+        "1",
+        "2"
+      ],
+      "ai_prompt_package": {
+        "non_goals": [
+          "OAuth providers",
+          "Password reset flows",
+          "Email verification"
+        ],
+        "objective": "Create authentication middleware and endpoints for user registration/login. Implement JWT token generation with short expiry and HTTP-only cookie storage. Add protected route decorators.",
+        "context_paths": [
+          "src/server/routes/auth.ts",
+          "src/server/middleware/auth.ts",
+          "src/server/services/jwt.ts"
+        ],
+        "acceptance_commands": [
+          "npm run test:auth",
+          "curl -X POST http://localhost:3000/api/auth/login -d '{\"email\":\"test@test.com\",\"password\":\"test\"}'"
+        ]
+      }
+    },
+    {
+      "id": "5",
+      "title": "Implement room lifecycle management API",
+      "depends_on": [
+        "1",
+        "2"
+      ],
+      "ai_prompt_package": {
+        "non_goals": [
+          "Public room discovery",
+          "Room templates",
+          "Room analytics"
+        ],
+        "objective": "Create REST endpoints for room creation, joining, and room state management. Implement room_id generation and validation. Store room metadata in PostgreSQL and active state in Redis.",
+        "context_paths": [
+          "src/server/routes/rooms.ts",
+          "src/server/services/roomService.ts",
+          "src/server/models/Room.ts"
+        ],
+        "acceptance_commands": [
+          "npm run test:rooms",
+          "curl -X POST http://localhost:3000/api/rooms -H 'Authorization: Bearer <token>'"
+        ]
+      }
+    },
+    {
+      "id": "6",
+      "title": "Implement game engine state machine in Redis",
+      "depends_on": [
+        "1",
+        "2",
+        "5"
+      ],
+      "ai_prompt_package": {
+        "non_goals": [
+          "Game difficulty settings",
+          "Custom game modes",
+          "Spectator mode"
+        ],
+        "objective": "Create JavaScript state machine for game flow (CREATED → JOINED → READY → RACING → FINISHED). Store room state in Redis with automatic serialization/deserialization. Implement crash recovery logic.",
+        "context_paths": [
+          "src/server/engine/GameEngine.ts",
+          "src/server/services/redisService.ts",
+          "src/server/models/GameState.ts"
+        ],
+        "acceptance_commands": [
+          "npm run test:engine",
+          "node -e \"require('./dist/server/engine/GameEngine').test()\""
+        ]
+      }
+    },
+    {
+      "id": "7",
+      "title": "Implement WebSocket real-time synchronization",
+      "depends_on": [
+        "2",
+        "6"
+      ],
+      "ai_prompt_package": {
+        "non_goals": [
+          "Voice channels",
+          "Text chat",
+          "Emote system"
+        ],
+        "objective": "Create Socket.io event handlers for player join/leave, position updates, and game state broadcasts. Implement 100ms interval broadcasting via Redis Pub/Sub. Add reconnection logic with state recovery.",
+        "context_paths": [
+          "src/server/socket.ts",
+          "src/server/events/gameEvents.ts",
+          "src/server/services/pubsub.ts"
+        ],
+        "acceptance_commands": [
+          "npm run test:websocket",
+          "npm run test:latency -- --target <100ms"
+        ]
+      }
+    },
+    {
+      "id": "8",
+      "title": "Implement server-side keystroke validation",
+      "depends_on": [
+        "2",
+        "6",
+        "7"
+      ],
+      "ai_prompt_package": {
+        "non_goals": [
+          "Keyboard layout detection",
+          "Typo correction",
+          "Accessibility features"
+        ],
+        "objective": "Create keystroke validation logic to compare client input against passage text. Implement cheating detection (speed anomalies, pattern matching). Return validation results to clients.",
+        "context_paths": [
+          "src/server/services/keystrokeValidator.ts",
+          "src/server/models/Passage.ts",
+          "src/server/engine/ValidationEngine.ts"
+        ],
+        "acceptance_commands": [
+          "npm run test:validation",
+          "npm run test:cheat-detection"
+        ]
+      }
+    },
+    {
+      "id": "9",
+      "title": "Implement Canvas-based race track rendering",
+      "depends_on": [
+        "3",
+        "7"
+      ],
+      "ai_prompt_package": {
+        "non_goals": [
+          "3D graphics",
+          "Particle effects",
+          "Custom themes"
+        ],
+        "objective": "Create HTML5 Canvas component for 60fps race track visualization. Implement player avatar rendering, progress bars, and real-time position updates. Add interpolation for smooth visual movement.",
+        "context_paths": [
+          "src/components/CanvasRaceTrack.tsx",
+          "src/components/PlayerAvatar.tsx",
+          "src/utils/canvasRenderer.ts"
+        ],
+        "acceptance_commands": [
+          "npm run build",
+          "npm test -- --testPathPattern=Canvas"
+        ]
+      }
+    },
+    {
+      "id": "10",
+      "title": "Implement frontend game UI components",
+      "depends_on": [
+        "3",
+        "9"
+      ],
+      "ai_prompt_package": {
+        "non_goals": [
+          "Profile pages",
+          "Achievement badges",
+          "Social feeds"
+        ],
+        "objective": "Create React components for game lobby, race view, and results screen. Implement WPM and accuracy display. Add Socket.io-client connection management with error handling.",
+        "context_paths": [
+          "src/components/GameLobby.tsx",
+          "src/components/RaceView.tsx",
+          "src/components/ResultsScreen.tsx",
+          "src/hooks/useSocket.ts"
+        ],
+        "acceptance_commands": [
+          "npm run build",
+          "npm test -- --testPathPattern=UI"
+        ]
+      }
+    },
+    {
+      "id": "11",
+      "title": "Implement persistent results storage",
+      "depends_on": [
+        "1",
+        "6",
+        "8"
+      ],
+      "ai_prompt_package": {
+        "non_goals": [
+          "Leaderboards",
+          "Historical analytics",
+          "Export features"
+        ],
+        "objective": "Create GameSession model and repository for storing race results. Implement WPM and accuracy calculation. Add indexes for query performance on game_id and user_id.",
+        "context_paths": [
+          "src/server/models/GameSession.ts",
+          "src/server/repositories/GameSessionRepository.ts",
+          "prisma/schema.prisma"
+        ],
+        "acceptance_commands": [
+          "npm run test:results",
+          "npx prisma db seed --results"
+        ]
+      }
+    },
+    {
+      "id": "12",
+      "title": "Integration testing and end-to-end validation",
+      "depends_on": [
+        "4",
+        "5",
+        "6",
+        "7",
+        "8",
+        "9",
+        "10",
+        "11"
+      ],
+      "ai_prompt_package": {
+        "non_goals": [
+          "Load testing",
+          "Stress testing",
+          "Performance profiling"
+        ],
+        "objective": "Create integration tests for full race flow from room creation to results. Test WebSocket latency, keystroke validation, and state synchronization. Verify <100ms round-trip latency requirement.",
+        "context_paths": [
+          "tests/integration/raceFlow.test.ts",
+          "tests/e2e/typingRace.test.ts",
+          "docker-compose.yml"
+        ],
+        "acceptance_commands": [
+          "docker-compose up -d",
+          "npm run test:integration",
+          "npm run test:e2e"
+        ]
+      }
+    }
+  ],
+  "qa_matrix": [
+    {
+      "suite": "backend",
+      "command": "npm run lint && npm run test",
+      "task_id": "2"
+    },
+    {
+      "suite": "frontend",
+      "command": "npm run build && npm test",
+      "task_id": "3"
+    },
+    {
+      "suite": "integration",
+      "command": "docker-compose up -d && npm run test:integration",
+      "task_id": "12"
+    },
+    {
+      "suite": "latency",
+      "command": "npm run test:latency -- --target <100ms",
+      "task_id": "7"
+    },
+    {
+      "suite": "validation",
+      "command": "npm run test:validation && npm run test:cheat-detection",
+      "task_id": "8"
+    }
+  ],
+  "model_hints": {
+    "pm": {
+      "model_id": "qwen/qwen3.5-flash-02-23",
+      "provider": "openrouter"
+    }
+  },
+  "schema_version": "plan.v1.0",
+  "executive_summary": "Product Vision: Develop a greenfield real-time multiplayer typing race MVP enabling 2–8 players to compete in private rooms via shareable links. The system prioritizes low-latency synchronization (<100ms) and accurate performance metrics (WPM, accuracy) using a Canvas-based visualization.\n\nCurrent State: The repository is initialized with a basic scaffold (Docker Compose, TS configs, placeholder README) but lacks implementation logic. No CI/CD pipelines or production infrastructure are active.\n\nScope: Focuses on private room creation, real-time WebSocket synchronization, server-authoritative game state validation, and persistent results storage. Excludes public matchmaking, social features, and mobile optimization for this phase.\n\nAssumptions: Managed PostgreSQL and Redis instances are available; deployment targets a standard cloud PaaS with sticky session support for WebSocket affinity.\n\nProblem Framing: Users need a frictionless way to compete in typing speed without complex setup or social overhead.\n\nGoals: Achieve <100ms round-trip latency for game state updates, ensure 99.9% uptime for room sessions, and prevent cheating via server-side keystroke validation.\n\nNon-Goals: Public leaderboards, user profiles beyond basic auth, mobile responsiveness, and voice chat.",
+  "architecture_notes": "Backend Core: Node.js/Express REST API handles authentication (JWT/HTTP-only cookies), room lifecycle, and passage data. A dedicated Socket.io server manages the real-time race loop. The Game Engine is a pure JavaScript state machine per room (CREATED → JOINED → READY → RACING → FINISHED) stored in Redis for hot access and crash recovery.\n\nReal-Time Sync: Client keystrokes are validated server-side against the passage text to prevent cheating. Position updates are broadcast at 100ms intervals via Redis Pub/Sub to support horizontal scaling. Clients use interpolation to smooth visual movement between server ticks.\n\nFrontend: React 18 + TypeScript. Uses HTML5 Canvas for 60fps race track rendering. State management splits between React Context (global game state) and local component state. Socket.io-client handles WS connections with reconnection logic.\n\nData Layer: PostgreSQL stores persistent entities (Users, Rooms, Games, Passages, GameSessions). Redis stores ephemeral room state, player progress, and acts as the Pub/Sub broker. Indexes on room_id, user_id, and game_id ensure query performance.\n\nSecurity & Scaling: JWT auth with short expiry. Sticky sessions required at the load balancer level for WS affinity. Redis Pub/Sub enables cross-instance broadcasting for the race loop.\n\nBoundaries: Server owns game logic and state; Client owns rendering and input capture.\n\nIntegrations: Prisma ORM for DB, Redis Client for Pub/Sub, Socket.io for WS."
+}
