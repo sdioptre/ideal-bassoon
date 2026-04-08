@@ -1,0 +1,73 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        String   @id @default(uuid())
+  email     String   @unique
+  password  String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  sessions  GameSession[]
+}
+
+model Room {
+  id          String   @id @default(uuid())
+  name        String
+  createdBy   String   // User ID or session token
+  maxPlayers  Int      @default(8)
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  games       Game[]
+  gameSessions GameSession[]
+}
+
+model Game {
+  id          String   @id @default(uuid())
+  roomId      String
+  room        Room     @relation(fields: [roomId], references: [id])
+  passageId   String
+  passage     Passage  @relation(fields: [passageId], references: [id])
+  status      String   @default("CREATED") // CREATED, JOINED, READY, RACING, FINISHED
+  startedAt   DateTime?
+  finishedAt  DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  gameSessions GameSession[]
+}
+
+model Passage {
+  id          String   @id @default(uuid())
+  text        String
+  wordCount   Int
+  difficulty  String   @default("MEDIUM") // EASY, MEDIUM, HARD
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  games       Game[]
+}
+
+model GameSession {
+  id          String   @id @default(uuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id])
+  roomId      String
+  room        Room     @relation(fields: [roomId], references: [id])
+  gameId      String
+  game        Game     @relation(fields: [gameId], references: [id])
+  startedAt   DateTime @default(now())
+  finishedAt  DateTime?
+  wpm         Int?
+  accuracy    Float?
+  errors      Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
