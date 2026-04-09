@@ -1,0 +1,512 @@
+{
+  "tasks": [
+    {
+      "id": "1",
+      "title": "Initialize Docker Compose & Development Environment",
+      "depends_on": [],
+      "ai_prompt_package": {
+        "non_goals": [
+          "Production deployment configs",
+          "Kubernetes manifests",
+          "CI/CD pipelines"
+        ],
+        "objective": "Create docker-compose.yml with PostgreSQL, Redis, backend (Node.js), and frontend (React) services. Configure local dev environment with proper networking, volume mounts, and environment variables. Ensure services can communicate locally.",
+        "context_paths": [
+          "docker-compose.yml",
+          ".env.example",
+          "README.md"
+        ],
+        "acceptance_commands": [
+          "docker-compose up -d && docker-compose ps | grep healthy",
+          "docker-compose exec backend node -e \"console.log('Backend ready')\"",
+          "docker-compose exec frontend npm run dev -- --host 0.0.0.0"
+        ]
+      }
+    },
+    {
+      "id": "2",
+      "title": "Database Schema & Prisma ORM Setup",
+      "depends_on": [],
+      "ai_prompt_package": {
+        "non_goals": [
+          "Complex query optimization",
+          "Database seeding scripts",
+          "Migration rollback automation"
+        ],
+        "objective": "Create Prisma schema with User, Room, Game, Passage, and GameSession models. Define indexes on room_id, user_id, and game_id. Generate and apply migrations. Configure Prisma client in backend.",
+        "context_paths": [
+          "prisma/schema.prisma",
+          "src/db/prisma.client.ts"
+        ],
+        "acceptance_commands": [
+          "npx prisma generate",
+          "npx prisma migrate dev --name init",
+          "npx prisma db seed"
+        ]
+      }
+    },
+    {
+      "id": "3",
+      "title": "Redis Configuration & Pub/Sub Broker Setup",
+      "depends_on": [],
+      "ai_prompt_package": {
+        "non_goals": [
+          "Redis cluster setup",
+          "Persistence configuration",
+          "Redis monitoring dashboards"
+        ],
+        "objective": "Implement Redis client with connection pooling, Pub/Sub channels for room broadcasts, and TTL-based state expiration. Create Redis service module for room state caching.",
+        "context_paths": [
+          "src/services/redis.client.ts",
+          "src/services/redis.pubsub.ts"
+        ],
+        "acceptance_commands": [
+          "node -e \"require('./src/services/redis.client').connect().then(() => console.log('Redis connected'))\"",
+          "node -e \"require('./src/services/redis.pubsub').publish('test', 'hello').then(() => console.log('Pub/Sub working'))\""
+        ]
+      }
+    },
+    {
+      "id": "4",
+      "title": "Backend Express API Structure & Middleware",
+      "depends_on": [
+        "1",
+        "2"
+      ],
+      "ai_prompt_package": {
+        "non_goals": [
+          "GraphQL setup",
+          "API versioning beyond v1",
+          "Swagger documentation"
+        ],
+        "objective": "Create Express server with CORS, helmet, rate limiting, and request logging middleware. Set up route structure for /api/v1 endpoints. Configure error handling and request validation.",
+        "context_paths": [
+          "src/server.ts",
+          "src/middleware/index.ts",
+          "src/routes/index.ts"
+        ],
+        "acceptance_commands": [
+          "npm run dev:server && curl -I http://localhost:3001/api/v1/health",
+          "node -e \"require('./src/server').app.listen(3001, () => console.log('Server ready'))\""
+        ]
+      }
+    },
+    {
+      "id": "5",
+      "title": "Frontend React 18 + TypeScript Setup",
+      "depends_on": [
+        "1"
+      ],
+      "ai_prompt_package": {
+        "non_goals": [
+          "Mobile responsive design",
+          "PWA configuration",
+          "Advanced state management libraries"
+        ],
+        "objective": "Initialize React 18 with TypeScript, Vite build tool, and ESLint/Prettier configs. Set up folder structure for components, hooks, services, and types. Configure path aliases.",
+        "context_paths": [
+          "src/index.tsx",
+          "src/App.tsx",
+          "src/types/index.ts",
+          "vite.config.ts"
+        ],
+        "acceptance_commands": [
+          "npm run dev && curl -I http://localhost:5173",
+          "npm run build && ls -la dist/"
+        ]
+      }
+    },
+    {
+      "id": "6",
+      "title": "Authentication System (JWT + HTTP-only Cookies)",
+      "depends_on": [
+        "4",
+        "2"
+      ],
+      "ai_prompt_package": {
+        "non_goals": [
+          "OAuth providers",
+          "Social login",
+          "Multi-factor authentication"
+        ],
+        "objective": "Implement JWT authentication with 15-minute expiry, HTTP-only cookie storage, and refresh token rotation. Create auth middleware for protected routes. Add user registration/login endpoints.",
+        "context_paths": [
+          "src/middleware/auth.middleware.ts",
+          "src/routes/auth.routes.ts",
+          "src/services/auth.service.ts"
+        ],
+        "acceptance_commands": [
+          "curl -X POST http://localhost:3001/api/v1/auth/register -d '{\"email\":\"test@test.com\",\"password\":\"test123\"}' -H 'Content-Type: application/json'",
+          "curl -X POST http://localhost:3001/api/v1/auth/login -d '{\"email\":\"test@test.com\",\"password\":\"test123\"}' -H 'Content-Type: application/json' -c cookies.txt"
+        ]
+      }
+    },
+    {
+      "id": "7",
+      "title": "Room Lifecycle API Endpoints",
+      "depends_on": [
+        "4",
+        "6"
+      ],
+      "ai_prompt_package": {
+        "non_goals": [
+          "Public matchmaking",
+          "Room discovery",
+          "Room templates"
+        ],
+        "objective": "Implement REST endpoints for room creation, joining, player management, and room state queries. Generate shareable room links. Enforce 2-8 player limits per room.",
+        "context_paths": [
+          "src/routes/room.routes.ts",
+          "src/services/room.service.ts",
+          "src/types/room.types.ts"
+        ],
+        "acceptance_commands": [
+          "curl -X POST http://localhost:3001/api/v1/rooms -H 'Authorization: Bearer <token>'",
+          "curl http://localhost:3001/api/v1/rooms/:roomId -H 'Authorization: Bearer <token>'"
+        ]
+      }
+    },
+    {
+      "id": "8",
+      "title": "Passage Data API & Storage",
+      "depends_on": [
+        "4",
+        "2"
+      ],
+      "ai_prompt_package": {
+        "non_goals": [
+          "Passage authoring UI",
+          "Passage versioning",
+          "Community submissions"
+        ],
+        "objective": "Create passage CRUD endpoints with text sanitization to prevent XSS. Implement passage selection for game sessions. Store passages in PostgreSQL with category tags.",
+        "context_paths": [
+          "src/routes/passage.routes.ts",
+          "src/services/passage.service.ts",
+          "prisma/migrations/"
+        ],
+        "acceptance_commands": [
+          "curl -X POST http://localhost:3001/api/v1/passages -H 'Authorization: Bearer <token>' -d '{\"text\":\"Hello world\",\"category\":\"general\"}'",
+          "curl http://localhost:3001/api/v1/passages/random -H 'Authorization: Bearer <token>'"
+        ]
+      }
+    },
+    {
+      "id": "9",
+      "title": "Socket.io Server Initialization",
+      "depends_on": [
+        "4",
+        "3"
+      ],
+      "ai_prompt_package": {
+        "non_goals": [
+          "Socket.io clustering",
+          "WebSocket fallbacks",
+          "Binary data optimization"
+        ],
+        "objective": "Initialize Socket.io server with namespace for game rooms. Configure sticky session handling and reconnection logic with exponential backoff. Set up socket middleware for auth verification.",
+        "context_paths": [
+          "src/socket/server.ts",
+          "src/socket/middleware.ts",
+          "src/socket/rooms.ts"
+        ],
+        "acceptance_commands": [
+          "node -e \"require('./src/socket/server').init().then(() => console.log('Socket server ready'))\"",
+          "node -e \"require('socket.io-client').connect('http://localhost:3001/game').on('connect', () => console.log('Connected'))\""
+        ]
+      }
+    },
+    {
+      "id": "10",
+      "title": "Redis State Storage for Rooms",
+      "depends_on": [
+        "3",
+        "7"
+      ],
+      "ai_prompt_package": {
+        "non_goals": [
+          "Redis persistence to disk",
+          "State snapshotting",
+          "State compression"
+        ],
+        "objective": "Implement Redis-based room state storage with TTL expiration. Store player progress, game state, and timing data. Enable crash recovery from Redis state.",
+        "context_paths": [
+          "src/services/redis.room.state.ts",
+          "src/services/redis.player.progress.ts"
+        ],
+        "acceptance_commands": [
+          "node -e \"require('./src/services/redis.room.state').createRoom('test').then(() => console.log('Room created in Redis'))\"",
+          "node -e \"require('./src/services/redis.room.state').getRoom('test').then(room => console.log('Room state:', room))\""
+        ]
+      }
+    },
+    {
+      "id": "11",
+      "title": "Game State Machine Implementation",
+      "depends_on": [
+        "10",
+        "9"
+      ],
+      "ai_prompt_package": {
+        "non_goals": [
+          "State persistence to DB",
+          "State history tracking",
+          "State rollback"
+        ],
+        "objective": "Implement JavaScript state machine for room lifecycle (CREATED → JOINED → READY → RACING → FINISHED). Handle state transitions with validation. Store state in Redis with atomic operations.",
+        "context_paths": [
+          "src/game/StateMachine.ts",
+          "src/game/states/index.ts",
+          "src/game/states/RacingState.ts"
+        ],
+        "acceptance_commands": [
+          "node -e \"const sm = require('./src/game/StateMachine').default; const room = sm.create('test'); room.transition('JOINED'); console.log(room.getState())\"",
+          "node -e \"const sm = require('./src/game/StateMachine').default; const room = sm.create('test'); room.transition('RACING'); console.log('Racing started')\""
+        ]
+      }
+    },
+    {
+      "id": "12",
+      "title": "Server-Side Keystroke Validation",
+      "depends_on": [
+        "11",
+        "8"
+      ],
+      "ai_prompt_package": {
+        "non_goals": [
+          "Client-side validation",
+          "Typing speed prediction",
+          "Typing pattern analysis"
+        ],
+        "objective": "Implement server-side keystroke validation against passage text with early exit on mismatch. Calculate WPM and accuracy metrics. Prevent cheating by rejecting invalid inputs.",
+        "context_paths": [
+          "src/game/validator.ts",
+          "src/game/metrics.ts",
+          "src/game/cheat-detection.ts"
+        ],
+        "acceptance_commands": [
+          "node -e \"const v = require('./src/game/validator').default; console.log(v.validate('Hello', 'Hello'))\"",
+          "node -e \"const m = require('./src/game/metrics').default; console.log(m.calculateWPM(100, 50, 5))\""
+        ]
+      }
+    },
+    {
+      "id": "13",
+      "title": "WebSocket Broadcast Logic",
+      "depends_on": [
+        "9",
+        "11"
+      ],
+      "ai_prompt_package": {
+        "non_goals": [
+          "Real-time analytics",
+          "Broadcast throttling",
+          "Message queuing"
+        ],
+        "objective": "Implement 100ms interval position updates via Redis Pub/Sub. Broadcast game state to all connected players in room. Handle player disconnects and state recovery.",
+        "context_paths": [
+          "src/socket/broadcast.ts",
+          "src/services/redis.pubsub.ts",
+          "src/game/room.broadcast.ts"
+        ],
+        "acceptance_commands": [
+          "node -e \"require('./src/socket/broadcast').broadcast('test-room', {type: 'update', data: {}}).then(() => console.log('Broadcast sent'))\"",
+          "node -e \"require('./src/socket/broadcast').subscribe('test-room').on('message', m => console.log('Received:', m))\""
+        ]
+      }
+    },
+    {
+      "id": "14",
+      "title": "Frontend Canvas Race Track Rendering",
+      "depends_on": [
+        "5"
+      ],
+      "ai_prompt_package": {
+        "non_goals": [
+          "3D rendering",
+          "Particle effects",
+          "Background animations"
+        ],
+        "objective": "Implement HTML5 Canvas-based race track at 60fps. Render player positions, progress bars, and typing indicators. Optimize for smooth animation with requestAnimationFrame.",
+        "context_paths": [
+          "src/components/RaceTrack.tsx",
+          "src/components/PlayerLane.tsx",
+          "src/hooks/useCanvas.ts"
+        ],
+        "acceptance_commands": [
+          "npm run dev && curl -I http://localhost:5173",
+          "node -e \"require('./src/components/RaceTrack').render()\""
+        ]
+      }
+    },
+    {
+      "id": "15",
+      "title": "Frontend Socket.io Client Integration",
+      "depends_on": [
+        "5",
+        "9"
+      ],
+      "ai_prompt_package": {
+        "non_goals": [
+          "Socket.io clustering",
+          "Binary data optimization",
+          "WebSocket fallbacks"
+        ],
+        "objective": "Implement Socket.io-client with reconnection logic and exponential backoff. Handle real-time game state updates, player join/leave events, and race progress. Sync local state with server.",
+        "context_paths": [
+          "src/services/socket.client.ts",
+          "src/hooks/useSocket.ts",
+          "src/context/GameContext.tsx"
+        ],
+        "acceptance_commands": [
+          "npm run dev && node -e \"require('./src/services/socket.client').connect('http://localhost:3001/game').on('connect', () => console.log('Connected'))\"",
+          "node -e \"require('./src/services/socket.client').emit('join-room', 'test').then(() => console.log('Joined room'))\""
+        ]
+      }
+    },
+    {
+      "id": "16",
+      "title": "Game Session Persistence & Results",
+      "depends_on": [
+        "11",
+        "12",
+        "2"
+      ],
+      "ai_prompt_package": {
+        "non_goals": [
+          "Leaderboards",
+          "Result comparison",
+          "Social sharing"
+        ],
+        "objective": "Implement game session completion logic with WPM, accuracy, and time metrics. Store results in PostgreSQL. Generate shareable result links for completed races.",
+        "context_paths": [
+          "src/services/game.session.service.ts",
+          "src/routes/results.routes.ts",
+          "prisma/schema.prisma"
+        ],
+        "acceptance_commands": [
+          "curl -X POST http://localhost:3001/api/v1/games/:gameId/complete -H 'Authorization: Bearer <token>' -d '{\"wpm\": 80, \"accuracy\": 95}'",
+          "curl http://localhost:3001/api/v1/results/:gameId -H 'Authorization: Bearer <token>'"
+        ]
+      }
+    },
+    {
+      "id": "17",
+      "title": "Input Sanitization & XSS Prevention",
+      "depends_on": [
+        "4",
+        "8"
+      ],
+      "ai_prompt_package": {
+        "non_goals": [
+          "HTML rendering",
+          "Rich text editing",
+          "Markdown support"
+        ],
+        "objective": "Implement input sanitization on all text fields using DOMPurify or similar. Sanitize passage text, player names, and chat messages. Add Content-Security-Policy headers.",
+        "context_paths": [
+          "src/middleware/sanitize.middleware.ts",
+          "src/utils/sanitizer.ts",
+          "src/config/security.ts"
+        ],
+        "acceptance_commands": [
+          "node -e \"const s = require('./src/utils/sanitizer').sanitize('<script>alert(1)</script>'); console.log(s)\"",
+          "curl -I http://localhost:3001/api/v1/health | grep -i content-security-policy"
+        ]
+      }
+    },
+    {
+      "id": "18",
+      "title": "Integration Tests & Test Suite Setup",
+      "depends_on": [
+        "4",
+        "5",
+        "6",
+        "7",
+        "8",
+        "9",
+        "10",
+        "11",
+        "12",
+        "13",
+        "14",
+        "15",
+        "16",
+        "17"
+      ],
+      "ai_prompt_package": {
+        "non_goals": [
+          "E2E browser testing",
+          "Visual regression tests",
+          "Load testing infrastructure"
+        ],
+        "objective": "Create Jest/Vitest test suite with unit, integration, and performance tests. Mock Redis and database for isolated testing. Achieve 80%+ code coverage on critical paths.",
+        "context_paths": [
+          "tests/unit/",
+          "tests/integration/",
+          "tests/performance/",
+          "jest.config.js"
+        ],
+        "acceptance_commands": [
+          "npm run test:unit",
+          "npm run test:integration",
+          "npm run test:performance -- --timeout=5000"
+        ]
+      }
+    }
+  ],
+  "qa_matrix": [
+    {
+      "suite": "unit",
+      "command": "npm run test:unit",
+      "task_ids": [
+        "18"
+      ]
+    },
+    {
+      "suite": "integration",
+      "command": "npm run test:integration",
+      "task_ids": [
+        "18"
+      ]
+    },
+    {
+      "suite": "performance",
+      "command": "npm run test:performance -- --timeout=5000",
+      "task_ids": [
+        "18"
+      ]
+    },
+    {
+      "suite": "latency",
+      "command": "node tests/performance/latency-check.js",
+      "task_ids": [
+        "13"
+      ]
+    },
+    {
+      "suite": "security",
+      "command": "npm run lint:check && node tests/security/xss-check.js",
+      "task_ids": [
+        "17"
+      ]
+    },
+    {
+      "suite": "integration",
+      "command": "docker-compose up -d && npm run test:integration",
+      "task_ids": [
+        "1"
+      ]
+    }
+  ],
+  "model_hints": {
+    "pm": {
+      "model_id": "qwen/qwen3.5-flash-02-23",
+      "provider": "openrouter"
+    }
+  },
+  "schema_version": "plan_version.v1",
+  "subagent_roster": {},
+  "executive_summary": "## Executive Summary\n\n**Product Vision:** Develop a greenfield real-time multiplayer typing race MVP enabling 2–8 players to compete in private rooms via shareable links. The system prioritizes low-latency synchronization (<100ms round-trip) and accurate performance metrics (WPM, accuracy) using a Canvas-based visualization.\n\n**Current State:** The repository is initialized with a basic scaffold (Docker Compose, TS configs, placeholder README) but lacks implementation logic. No CI/CD pipelines or production infrastructure are active. The codebase is empty of business logic.\n\n**Scope:** Focuses on private room creation, real-time WebSocket synchronization, server-authoritative game state validation, and persistent results storage. Excludes public matchmaking, social features, and mobile optimization for this phase.\n\n**Assumptions:** Managed PostgreSQL and Redis instances are available; deployment targets a standard cloud PaaS with sticky session support for WebSocket affinity. Development environment will mirror production stack via Docker Compose.\n\n**Problem Framing:** Users need a frictionless way to compete in typing speed without complex setup or social overhead. Current solutions lack real-time fairness or require account creation.\n\n**Goals:** Achieve <100ms round-trip latency for game state updates, ensure 99.9% uptime for room sessions, and prevent cheating via server-side keystroke validation. Deliver a functional MVP within the sprint cycle.\n\n**Non-Goals:** Public leaderboards, user profiles beyond basic auth, mobile responsiveness, and voice chat. These are deferred to Phase 2.\n\n**Success Metrics:** <100ms latency on 95th percentile, 0% cheating incidents in test suite, 100% room creation success rate under load.",
+  "architecture_notes": "## Architecture / Constraints\n\n**Backend Core:** Node.js/Express REST API handles authentication (JWT/HTTP-only cookies), room lifecycle, and passage data. A dedicated Socket.io server manages the real-time race loop. The Game Engine is a pure JavaScript state machine per room (CREATED → JOINED → READY → RACING → FINISHED) stored in Redis for hot access and crash recovery.\n\n**Real-Time Sync:** Client keystrokes are validated server-side against the passage text to prevent cheating. Position updates are broadcast at 100ms intervals via Redis Pub/Sub to support horizontal scaling. Clients use interpolation to smooth visual movement between server ticks.\n\n**Frontend:** React 18 + TypeScript. Uses HTML5 Canvas for 60fps race track rendering. State management splits between React Context (global game state) and local component state. Socket.io-client handles WS connections with exponential backoff reconnection logic.\n\n**Data Layer:** PostgreSQL stores persistent entities (Users, Rooms, Games, Passages, GameSessions). Redis stores ephemeral room state, player progress, and acts as the Pub/Sub broker. Indexes on room_id, user_id, and game_id ensure query performance.\n\n**Security & Scaling:** JWT auth with short expiry (15m). Sticky sessions required at the load balancer level for WS affinity. Redis Pub/Sub enables cross-instance broadcasting for the race loop. Input sanitization on all text fields to prevent XSS.\n\n**Boundaries:** Server owns game logic and state; Client owns rendering and input capture. No client-side trust for game state.\n\n**Integrations:** Prisma ORM for DB, Redis Client for Pub/Sub, Socket.io for WS. Docker Compose for local dev environment.\n\n**Risks & Tradeoffs:** WebSocket affinity is a single point of failure if sticky sessions fail; mitigation involves robust reconnection logic and state recovery from Redis. Server-side validation adds latency; mitigation involves optimizing validation logic and using efficient string comparison algorithms (e.g., early exit on mismatch)."
+}
