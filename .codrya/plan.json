@@ -1,0 +1,445 @@
+{
+  "tasks": [
+    {
+      "id": "1",
+      "title": "Initialize Prisma schema and database migrations",
+      "depends_on": [],
+      "ai_prompt_package": {
+        "non_goals": [
+          "User authentication logic",
+          "Game state persistence",
+          "Redis integration"
+        ],
+        "objective": "Create Prisma schema for Users, Rooms, Passages, and GameSessions entities. Generate and run initial migrations to set up PostgreSQL tables with proper indexes on room_id, user_id, and game_id. Follow TDD: write migration tests first that verify schema structure, then implement migrations.",
+        "context_paths": [
+          "prisma/schema.prisma",
+          "prisma/migrations/",
+          "src/database/"
+        ],
+        "acceptance_commands": [
+          "npx prisma generate",
+          "npx prisma migrate dev --name init",
+          "npm run test:unit -- --testPathPattern=database-schema"
+        ]
+      }
+    },
+    {
+      "id": "2",
+      "title": "Set up Express REST API server with health checks",
+      "depends_on": [
+        "1"
+      ],
+      "ai_prompt_package": {
+        "non_goals": [
+          "Authentication endpoints",
+          "Room creation logic",
+          "WebSocket server"
+        ],
+        "objective": "Create Express server with health check endpoints (/health, /ready). Implement middleware for request validation and error handling. Follow TDD: write integration tests for health endpoints first, verify they fail without implementation, then implement.",
+        "context_paths": [
+          "src/server/index.ts",
+          "src/server/routes/",
+          "src/middleware/"
+        ],
+        "acceptance_commands": [
+          "npm run test:unit -- --testPathPattern=server-health",
+          "curl http://localhost:3000/health",
+          "curl http://localhost:3000/ready"
+        ]
+      }
+    },
+    {
+      "id": "3",
+      "title": "Initialize Socket.io server with Redis Pub/Sub",
+      "depends_on": [
+        "1"
+      ],
+      "ai_prompt_package": {
+        "non_goals": [
+          "Game state logic",
+          "Player validation",
+          "Room management"
+        ],
+        "objective": "Create Socket.io server with Redis adapter for cross-instance broadcasting. Implement connection handling with exponential backoff reconnection logic. Follow TDD: write socket connection tests first, verify failures, then implement.",
+        "context_paths": [
+          "src/socket/index.ts",
+          "src/socket/adapters/",
+          "src/socket/middleware/"
+        ],
+        "acceptance_commands": [
+          "npm run test:unit -- --testPathPattern=socket-connection",
+          "docker-compose up redis",
+          "npm run dev:socket"
+        ]
+      }
+    },
+    {
+      "id": "4",
+      "title": "Implement JWT authentication with HTTP-only cookies",
+      "depends_on": [
+        "2"
+      ],
+      "ai_prompt_package": {
+        "non_goals": [
+          "OAuth providers",
+          "User profile management",
+          "Session persistence beyond Redis"
+        ],
+        "objective": "Create auth middleware and endpoints for JWT token generation and validation. Implement 15-minute token expiry with refresh token rotation. Follow TDD: write auth flow tests with expected input/output pairs first, verify failures, then implement.",
+        "context_paths": [
+          "src/auth/index.ts",
+          "src/auth/middleware.ts",
+          "src/auth/strategies/"
+        ],
+        "acceptance_commands": [
+          "npm run test:unit -- --testPathPattern=auth-jwt",
+          "npm run test:security -- --testPathPattern=token-validation",
+          "npm run test:e2e -- --grep='auth-flow'"
+        ]
+      }
+    },
+    {
+      "id": "5",
+      "title": "Build room lifecycle state machine (CREATED→FINISHED)",
+      "depends_on": [
+        "1",
+        "3"
+      ],
+      "ai_prompt_package": {
+        "non_goals": [
+          "Room discovery",
+          "Public matchmaking",
+          "Room persistence to PostgreSQL"
+        ],
+        "objective": "Implement room state machine with transitions: CREATED → JOINED → READY → RACING → FINISHED. Store state in Redis for hot access and crash recovery. Follow TDD: write state transition tests with invalid/valid transitions first, verify failures, then implement.",
+        "context_paths": [
+          "src/rooms/state-machine.ts",
+          "src/rooms/redis-store.ts",
+          "src/rooms/routes/"
+        ],
+        "acceptance_commands": [
+          "npm run test:unit -- --testPathPattern=room-state-machine",
+          "npm run test:e2e -- --grep='room-lifecycle'",
+          "docker-compose up redis && npm run test:unit -- --testPathPattern=room-redis"
+        ]
+      }
+    },
+    {
+      "id": "6",
+      "title": "Implement server-authoritative game engine state machine",
+      "depends_on": [
+        "5"
+      ],
+      "ai_prompt_package": {
+        "non_goals": [
+          "Client-side rendering",
+          "Visual effects",
+          "Player avatars"
+        ],
+        "objective": "Create pure JavaScript game engine that validates all game state server-side. Implement position tracking, race progress calculation, and finish detection. Follow TDD: write game engine tests with expected input/output pairs first, verify failures, then implement.",
+        "context_paths": [
+          "src/game-engine/index.ts",
+          "src/game-engine/state.ts",
+          "src/game-engine/validators/"
+        ],
+        "acceptance_commands": [
+          "npm run test:unit -- --testPathPattern=game-engine",
+          "npm run test:security -- --testPathPattern=cheat-detection",
+          "npm run test:unit -- --testPathPattern=game-validation"
+        ]
+      }
+    },
+    {
+      "id": "7",
+      "title": "Implement keystroke validation and anti-cheat detection",
+      "depends_on": [
+        "6"
+      ],
+      "ai_prompt_package": {
+        "non_goals": [
+          "Client-side input prevention",
+          "User reputation systems",
+          "Manual review workflows"
+        ],
+        "objective": "Create server-side keystroke validation that compares client input against passage text. Implement detection for impossible keystroke speeds and pattern-based cheating. Follow TDD: write anti-cheat tests with expected cheating patterns first, verify failures, then implement.",
+        "context_paths": [
+          "src/game-engine/validators/keystroke.ts",
+          "src/game-engine/validators/anti-cheat.ts",
+          "src/game-engine/validators/passage-match.ts"
+        ],
+        "acceptance_commands": [
+          "npm run test:security -- --testPathPattern=cheat-detection",
+          "npm run test:unit -- --testPathPattern=keystroke-validation",
+          "npm run test:unit -- --testPathPattern=anti-cheat-patterns"
+        ]
+      }
+    },
+    {
+      "id": "8",
+      "title": "Implement WebSocket position broadcast at 100ms intervals",
+      "depends_on": [
+        "6",
+        "7"
+      ],
+      "ai_prompt_package": {
+        "non_goals": [
+          "Voice chat",
+          "Text chat",
+          "Player avatars"
+        ],
+        "objective": "Create WebSocket event handlers for broadcasting player positions at 100ms intervals via Redis Pub/Sub. Implement client interpolation for smooth visual movement. Follow TDD: write broadcast tests with expected timing and payload first, verify failures, then implement.",
+        "context_paths": [
+          "src/socket/handlers/position.ts",
+          "src/socket/handlers/race-state.ts",
+          "src/socket/events/"
+        ],
+        "acceptance_commands": [
+          "npm run test:unit -- --testPathPattern=socket-broadcast",
+          "k6 run scripts/ws-latency.js",
+          "npm run test:e2e -- --grep='real-time-sync'"
+        ]
+      }
+    },
+    {
+      "id": "9",
+      "title": "Create React frontend with TypeScript and Canvas rendering",
+      "depends_on": [
+        "2",
+        "3"
+      ],
+      "ai_prompt_package": {
+        "non_goals": [
+          "Mobile responsiveness",
+          "PWA features",
+          "Offline mode"
+        ],
+        "objective": "Initialize React 18 + TypeScript frontend with HTML5 Canvas for 60fps race track rendering. Set up state management with React Context for global game state. Follow TDD: write component tests with expected render outputs first, verify failures, then implement.",
+        "context_paths": [
+          "src/frontend/",
+          "src/frontend/components/RaceTrack/",
+          "src/frontend/context/GameContext.tsx"
+        ],
+        "acceptance_commands": [
+          "npm run test:unit -- --testPathPattern=frontend-components",
+          "npm run build:frontend",
+          "npm run test:e2e -- --grep='frontend-render'"
+        ]
+      }
+    },
+    {
+      "id": "10",
+      "title": "Implement Socket.io-client with reconnection logic",
+      "depends_on": [
+        "9"
+      ],
+      "ai_prompt_package": {
+        "non_goals": [
+          "WebSocket fallback to HTTP polling",
+          "Custom WebSocket protocol",
+          "Connection pooling"
+        ],
+        "objective": "Create Socket.io-client integration with exponential backoff reconnection logic. Implement state recovery from Redis on reconnection. Follow TDD: write reconnection tests with expected recovery behavior first, verify failures, then implement.",
+        "context_paths": [
+          "src/frontend/hooks/useSocket.ts",
+          "src/frontend/utils/reconnection.ts",
+          "src/frontend/services/socket-client.ts"
+        ],
+        "acceptance_commands": [
+          "npm run test:unit -- --testPathPattern=socket-client",
+          "npm run test:e2e -- --grep='reconnection'",
+          "npm run test:e2e -- --grep='state-recovery'"
+        ]
+      }
+    },
+    {
+      "id": "11",
+      "title": "Implement persistent game results storage to PostgreSQL",
+      "depends_on": [
+        "6",
+        "1"
+      ],
+      "ai_prompt_package": {
+        "non_goals": [
+          "Historical analytics",
+          "Leaderboard aggregation",
+          "Data export features"
+        ],
+        "objective": "Create database service to persist game session results including player rankings, completion times, and cheating flags. Implement indexes on room_id, user_id, and game_id. Follow TDD: write persistence tests with expected data structure first, verify failures, then implement.",
+        "context_paths": [
+          "src/database/repositories/game-session.ts",
+          "src/database/repositories/player-results.ts",
+          "src/database/migrations/"
+        ],
+        "acceptance_commands": [
+          "npm run test:unit -- --testPathPattern=game-persistence",
+          "npm run test:e2e -- --grep='results-storage'",
+          "docker-compose up postgres && npm run test:unit -- --testPathPattern=db-persistence"
+        ]
+      }
+    },
+    {
+      "id": "12",
+      "title": "Create end-to-end room creation and race flow",
+      "depends_on": [
+        "4",
+        "5",
+        "8",
+        "9",
+        "10"
+      ],
+      "ai_prompt_package": {
+        "non_goals": [
+          "Room discovery",
+          "Public matchmaking",
+          "Social sharing"
+        ],
+        "objective": "Implement complete user flow: room creation → shareable link → player join → race start → finish → results. Follow TDD: write E2E tests with expected user journey first, verify failures, then implement.",
+        "context_paths": [
+          "src/frontend/pages/RoomPage.tsx",
+          "src/frontend/pages/RacePage.tsx",
+          "src/frontend/pages/ResultsPage.tsx"
+        ],
+        "acceptance_commands": [
+          "npm run test:e2e -- --grep='room-lifecycle'",
+          "npm run test:e2e -- --grep='race-flow'",
+          "npm run test:e2e -- --grep='results-display'"
+        ]
+      }
+    },
+    {
+      "id": "13",
+      "title": "Implement Docker Compose development environment",
+      "depends_on": [
+        "1",
+        "2",
+        "3",
+        "9"
+      ],
+      "ai_prompt_package": {
+        "non_goals": [
+          "Production Kubernetes manifests",
+          "Cloud-specific configurations",
+          "CI/CD pipelines"
+        ],
+        "objective": "Create Docker Compose configuration for local development with PostgreSQL, Redis, backend, and frontend services. Ensure development environment mirrors production stack. Follow TDD: write smoke tests that verify all services start correctly first, verify failures, then implement.",
+        "context_paths": [
+          "docker-compose.yml",
+          "docker-compose.dev.yml",
+          "scripts/smoke-test.sh"
+        ],
+        "acceptance_commands": [
+          "docker-compose up --build",
+          "./scripts/smoke-test.sh",
+          "npm run test:unit -- --testPathPattern=infrastructure"
+        ]
+      }
+    },
+    {
+      "id": "14",
+      "title": "Implement WebSocket latency optimization and monitoring",
+      "depends_on": [
+        "8"
+      ],
+      "ai_prompt_package": {
+        "non_goals": [
+          "Network packet analysis",
+          "Deep packet inspection",
+          "Custom network protocols"
+        ],
+        "objective": "Optimize WebSocket latency to achieve <100ms round-trip for game state updates. Implement latency monitoring and alerting. Follow TDD: write latency tests with expected timing thresholds first, verify failures, then implement.",
+        "context_paths": [
+          "src/socket/middleware/latency.ts",
+          "scripts/ws-latency.js",
+          "src/monitoring/"
+        ],
+        "acceptance_commands": [
+          "k6 run scripts/ws-latency.js",
+          "npm run test:unit -- --testPathPattern=latency-optimization",
+          "npm run test:load -- --testPathPattern=ws-latency"
+        ]
+      }
+    },
+    {
+      "id": "15",
+      "title": "Create comprehensive test suite and CI integration",
+      "depends_on": [
+        "12",
+        "13"
+      ],
+      "ai_prompt_package": {
+        "non_goals": [
+          "Code coverage dashboards",
+          "Performance profiling",
+          "Security scanning"
+        ],
+        "objective": "Create unified test suite with unit, integration, E2E, and load tests. Configure CI/CD pipeline for automated testing on every commit. Follow TDD: write test runner configuration first, verify failures, then implement.",
+        "context_paths": [
+          "jest.config.js",
+          "playwright.config.ts",
+          ".github/workflows/ci.yml",
+          "scripts/"
+        ],
+        "acceptance_commands": [
+          "npm run test",
+          "npm run test:e2e",
+          "npm run test:load",
+          "npm run test:security"
+        ]
+      }
+    }
+  ],
+  "qa_matrix": [
+    {
+      "suite": "Game Logic Unit Tests",
+      "command": "npm run test:unit -- --testPathPattern=game-engine",
+      "task_ids": [
+        "6"
+      ]
+    },
+    {
+      "suite": "WebSocket Latency Load Test",
+      "command": "k6 run scripts/ws-latency.js",
+      "task_ids": [
+        "14"
+      ]
+    },
+    {
+      "suite": "Room Lifecycle E2E",
+      "command": "playwright test --grep='room-lifecycle'",
+      "task_ids": [
+        "12"
+      ]
+    },
+    {
+      "suite": "Anti-Cheat Validation",
+      "command": "npm run test:security -- --testPathPattern=cheat-detection",
+      "task_ids": [
+        "7"
+      ]
+    },
+    {
+      "suite": "Infrastructure Smoke Test",
+      "command": "docker-compose up --build && ./scripts/smoke-test.sh",
+      "task_ids": [
+        "13"
+      ]
+    },
+    {
+      "suite": "Full Integration Test Suite",
+      "command": "npm run test",
+      "task_ids": [
+        "15"
+      ]
+    }
+  ],
+  "model_hints": {
+    "pm": {
+      "model_id": "qwen/qwen3.5-flash-02-23",
+      "provider": "openrouter"
+    }
+  },
+  "schema_version": "plan.v1",
+  "subagent_roster": {},
+  "executive_summary": "Product Vision: Greenfield real-time multiplayer typing race MVP enabling 2–8 players in private rooms via shareable links. Current State: Repository scaffolded (Docker Compose, TS configs) but lacks business logic; no CI/CD or production infrastructure. Scope: Private room creation, real-time WebSocket synchronization, server-authoritative game state validation, persistent results storage. Excludes public matchmaking, social features, mobile optimization. Assumptions: Managed PostgreSQL and Redis available; deployment targets standard cloud PaaS with sticky session support for WebSocket affinity. Development environment mirrors production stack via Docker Compose. Problem Framing: Users need frictionless competition without complex setup; current solutions lack real-time fairness. Goals: Achieve <100ms round-trip latency for game state updates, ensure 99.9% uptime for room sessions, prevent cheating via server-side keystroke validation. Deliver functional MVP within sprint cycle. Non-Goals: Public leaderboards, user profiles beyond basic auth, mobile responsiveness, voice chat. Success Metrics: <100ms latency on 95th percentile, 0% cheating incidents in test suite, 100% room creation success rate under load.",
+  "architecture_notes": "Backend Core: Node.js/Express REST API handles authentication (JWT/HTTP-only cookies), room lifecycle, and passage data. Dedicated Socket.io server manages real-time race loop. Game Engine is pure JavaScript state machine per room (CREATED → JOINED → READY → RACING → FINISHED) stored in Redis for hot access and crash recovery. Real-Time Sync: Client keystrokes validated server-side against passage text to prevent cheating. Position updates broadcast at 100ms intervals via Redis Pub/Sub to support horizontal scaling. Clients use interpolation to smooth visual movement between server ticks. Frontend: React 18 + TypeScript. Uses HTML5 Canvas for 60fps race track rendering. State management splits between React Context (global game state) and local component state. Socket.io-client handles WS connections with exponential backoff reconnection logic. Data Layer: PostgreSQL stores persistent entities (Users, Rooms, Games, Passages, GameSessions). Redis stores ephemeral room state, player progress, and acts as Pub/Sub broker. Indexes on room_id, user_id, and game_id ensure query performance. Security & Scaling: JWT auth with short expiry (15m). Sticky sessions required at load balancer level for WS affinity. Redis Pub/Sub enables cross-instance broadcasting. Input sanitization on all text fields to prevent XSS. Boundaries: Server owns game logic and state; Client owns rendering and input capture. No client-side trust for game state. Integrations: Prisma ORM for DB, Redis Client for Pub/Sub, Socket.io for WS. Docker Compose for local dev environment. Risks & Tradeoffs: WebSocket affinity is single point of failure if sticky sessions fail; mitigation involves robust reconnection logic and state recovery from Redis. Server-side validation adds latency; mitigation involves optimizing validation logic and using efficient string comparison algorithms."
+}
