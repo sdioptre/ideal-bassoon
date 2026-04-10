@@ -17,6 +17,8 @@ model User {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   sessions  GameSession[]
+
+  @@index([email])
 }
 
 model Room {
@@ -29,6 +31,8 @@ model Room {
   updatedAt   DateTime @updatedAt
   games       Game[]
   gameSessions GameSession[]
+
+  @@index([createdBy])
 }
 
 model Game {
@@ -43,6 +47,9 @@ model Game {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
   gameSessions GameSession[]
+
+  @@index([roomId])
+  @@index([passageId])
 }
 
 model Passage {
@@ -53,6 +60,8 @@ model Passage {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
   games       Game[]
+
+  @@index([difficulty])
 }
 
 model GameSession {
@@ -70,4 +79,9 @@ model GameSession {
   errors      Int      @default(0)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
+
+  @@index([userId])
+  @@index([roomId])
+  @@index([gameId])
+  @@index([roomId, userId, gameId]) // Composite index for efficient lookups
 }
